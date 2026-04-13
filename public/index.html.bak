@@ -202,13 +202,6 @@
         <div class="stat-label">Completadas</div>
         <div class="stat-val" id="home-done">0/14</div>
       </div>
-      <div class="stat-card" style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:10px 12px">
-        <div>
-          <div class="stat-label">Guardadas sin internet</div>
-          <div style="font-size:16px;font-weight:600;color:var(--teal)" id="home-cached">0/14</div>
-        </div>
-        <button onclick="clearAllCache()" style="background:transparent;border:0.5px solid var(--border2);border-radius:8px;padding:5px 10px;font-size:11px;color:var(--text3);cursor:pointer">Limpiar caché</button>
-      </div>
     </div>
     <div id="home-area-bars"></div>
   </div>
@@ -296,32 +289,6 @@ function getAllProgress() {
   return JSON.parse(localStorage.getItem('ep_progress') || '{}');
 }
 
-// Caché de contenido generado — persiste entre sesiones, evita llamadas repetidas a la API
-function saveContent(lessonId, type, data) {
-  try {
-    localStorage.setItem('ep_content_' + lessonId + '_' + type, JSON.stringify(data));
-  } catch(e) {
-    // localStorage lleno — limpiamos el contenido más antiguo y reintentamos
-    clearOldContent();
-    try { localStorage.setItem('ep_content_' + lessonId + '_' + type, JSON.stringify(data)); } catch(e2) {}
-  }
-}
-function loadContent(lessonId, type) {
-  try {
-    const raw = localStorage.getItem('ep_content_' + lessonId + '_' + type);
-    return raw ? JSON.parse(raw) : null;
-  } catch(e) { return null; }
-}
-function clearOldContent() {
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('ep_content_'));
-  keys.slice(0, Math.ceil(keys.length / 2)).forEach(k => localStorage.removeItem(k));
-}
-function getCacheStats() {
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('ep_content_'));
-  const lessons = new Set(keys.map(k => k.split('_')[2]));
-  return { cached: lessons.size, total: ALL.length };
-}
-
 // ── INSTALL PWA ───────────────────────────────────────────────────────────
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
@@ -338,21 +305,11 @@ if('serviceWorker' in navigator) {
 }
 
 // ── HOME ──────────────────────────────────────────────────────────────────
-function clearAllCache() {
-  if(!confirm('¿Borrar el contenido guardado? El progreso de quizzes se mantiene.')) return;
-  Object.keys(localStorage).filter(k=>k.startsWith('ep_content_')).forEach(k=>localStorage.removeItem(k));
-  Object.keys(cache).forEach(k=>delete cache[k]);
-  renderHome();
-}
-
 function renderHome() {
   const prog = getAllProgress();
   const done = ALL.filter(l => prog[l.id]?.done).length;
   document.getElementById('home-pct').textContent = Math.round(done/ALL.length*100)+'%';
   document.getElementById('home-done').textContent = done+'/'+ALL.length;
-  const stats = getCacheStats();
-  const cachedEl = document.getElementById('home-cached');
-  if(cachedEl) cachedEl.textContent = stats.cached+'/'+stats.total;
 
   // area progress bars
   let barsHtml = '';
@@ -478,35 +435,22 @@ correct = índice 0-3 de la correcta. exp = explicación breve de 1 oración.`;
 async function loadExplain(l) {
   const box = document.getElementById('tab-explain');
   if(cache[l.id+'_explain']) { box.innerHTML = cache[l.id+'_explain']; return; }
-  // Intentar desde localStorage primero
-  const cached = loadContent(l.id, 'explain');
-  if(cached) {
-    const html = buildExplainHtml(l, cached);
-    cache[l.id+'_explain'] = html;
-    box.innerHTML = html;
-    return;
-  }
-  box.innerHTML = `<div class="loading-box"><div class="spinner"></div>Generando explicación... (solo esta vez)</div>`;
+  box.innerHTML = `<div class="loading-box"><div class="spinner"></div>Generando explicación...</div>`;
   try {
     const d = await callClaude(prompt_explain(l));
-    saveContent(l.id, 'explain', d);
-    const html = buildExplainHtml(l, d);
+    const pts = d.points.map(p=>`<div class="key-point"><div class="kp-dot"></div><div class="kp-body"><span class="kp-title">${p.title}. </span>${p.body}</div></div>`).join('');
+    const html = `<div class="tags-row">${l.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+    <div class="section-lbl">Puntos clave</div>${pts}
+    <div class="summary-box">${d.summary}</div>
+    <button class="tts-full-btn" style="margin-top:14px;background:var(--purple)" onclick="readExplain(${JSON.stringify(d).replace(/"/g,'&quot;')})">Escuchar explicación completa</button>
+    <div class="bottom-bar" style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border)">
+      <button class="bottom-btn primary" onclick="switchTab('audio',document.querySelectorAll('.tab')[1])">Audio Q&A →</button>
+    </div>`;
     cache[l.id+'_explain'] = html;
     box.innerHTML = html;
   } catch(e) {
     box.innerHTML = `<div class="err-box">Error al cargar. Verifica tu conexión.<br><br><button class="bottom-btn" onclick="loadExplain(ALL[curIdx])">Reintentar</button></div>`;
   }
-}
-
-function buildExplainHtml(l, d) {
-  const pts = d.points.map(p=>`<div class="key-point"><div class="kp-dot"></div><div class="kp-body"><span class="kp-title">${p.title}. </span>${p.body}</div></div>`).join('');
-  return `<div class="tags-row">${l.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
-  <div class="section-lbl">Puntos clave</div>${pts}
-  <div class="summary-box">${d.summary}</div>
-  <button class="tts-full-btn" style="margin-top:14px;background:var(--purple)" onclick="readExplain(${JSON.stringify(d).replace(/"/g,'&quot;')})">Escuchar explicación completa</button>
-  <div class="bottom-bar" style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border)">
-    <button class="bottom-btn primary" onclick="switchTab('audio',document.querySelectorAll('.tab')[1])">Audio Q&A →</button>
-  </div>`;
 }
 
 function readExplain(data) {
@@ -518,66 +462,54 @@ function readExplain(data) {
 async function loadAudio(l) {
   const box = document.getElementById('tab-audio');
   if(cache[l.id+'_audio']) { box.innerHTML = cache[l.id+'_audio']; restorePlayer(l.id); return; }
-  // Intentar desde localStorage primero
-  const cached = loadContent(l.id, 'qa');
-  if(cached) {
-    playerState[l.id] = { qa:cached, cur:0, playing:false, phase:'idle', timer:null };
-    const html = buildAudioHtml(l, cached);
-    cache[l.id+'_audio'] = html;
-    box.innerHTML = html;
-    return;
-  }
-  box.innerHTML = `<div class="loading-box"><div class="spinner"></div>Generando preguntas Q&A... (solo esta vez)</div>`;
+  box.innerHTML = `<div class="loading-box"><div class="spinner"></div>Generando preguntas Q&A...</div>`;
   try {
     const d = await callClaude(prompt_qa(l));
     const qa = d.qa;
-    saveContent(l.id, 'qa', qa);
     playerState[l.id] = { qa, cur:0, playing:false, phase:'idle', timer:null };
-    const html = buildAudioHtml(l, qa);
+
+    const qaHtml = qa.map((item,i)=>`<div class="qa-item">
+      <div class="qa-q-text">${i+1}. ${item.q}</div>
+      <button class="qa-toggle-btn" onclick="toggleQA(this)">Ver respuesta</button>
+      <div class="qa-a-text">${item.a}</div>
+    </div>`).join('');
+
+    const html = `<div class="section-lbl">Reproductor Q&A</div>
+    <div class="player-card">
+      <div class="player-meta">
+        <span class="player-count">Pregunta <span id="pnum-${l.id}">1</span> / ${qa.length}</span>
+        <span class="player-phase" id="pphase-${l.id}">Listo</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="pprog-${l.id}" style="width:${Math.round(1/qa.length*100)}%;background:var(--purple)"></div></div>
+      <div class="tbar"><div class="tbar-fill" id="ptbar-${l.id}" style="width:100%"></div></div>
+      <div class="player-q" id="ptext-${l.id}">${qa[0].q}</div>
+      <div class="player-a" id="pans-${l.id}">${qa[0].a}</div>
+      <div class="player-btns">
+        <button class="pbtn" onclick="playerPrev('${l.id}')">←</button>
+        <button class="pbtn main" id="pbtn-${l.id}" onclick="playerToggle('${l.id}')">▶ Play</button>
+        <button class="pbtn" onclick="playerSkip('${l.id}')">R</button>
+        <button class="pbtn" onclick="playerNext('${l.id}')">→</button>
+      </div>
+    </div>
+    <div class="tts-card">
+      <div class="tts-label">Voz (TTS nativo del dispositivo)</div>
+      <div class="tts-speed">
+        <label>Velocidad</label>
+        <input type="range" min="1" max="20" value="9" step="1" id="tts-rate-${l.id}" oninput="document.getElementById('tts-rate-lbl-${l.id}').textContent=(this.value/10).toFixed(1)+'x'">
+        <span id="tts-rate-lbl-${l.id}">0.9x</span>
+      </div>
+      <button class="tts-full-btn" id="tts-full-btn-${l.id}" onclick="toggleFullTTS('${l.id}')">Escuchar todo seguido</button>
+    </div>
+    <div class="section-lbl">Todas las preguntas</div>
+    ${qaHtml}
+    <div class="bottom-bar">
+      <button class="bottom-btn primary" onclick="switchTab('quiz',document.querySelectorAll('.tab')[2])">Ir al simulacro →</button>
+    </div>`;
     cache[l.id+'_audio'] = html;
     box.innerHTML = html;
   } catch(e) {
     box.innerHTML = `<div class="err-box">Error al cargar.<br><br><button class="bottom-btn" onclick="loadAudio(ALL[curIdx])">Reintentar</button></div>`;
   }
-}
-
-function buildAudioHtml(l, qa) {
-  const qaHtml = qa.map((item,i)=>`<div class="qa-item">
-    <div class="qa-q-text">${i+1}. ${item.q}</div>
-    <button class="qa-toggle-btn" onclick="toggleQA(this)">Ver respuesta</button>
-    <div class="qa-a-text">${item.a}</div>
-  </div>`).join('');
-  return `<div class="section-lbl">Reproductor Q&A</div>
-  <div class="player-card">
-    <div class="player-meta">
-      <span class="player-count">Pregunta <span id="pnum-${l.id}">1</span> / ${qa.length}</span>
-      <span class="player-phase" id="pphase-${l.id}">Listo</span>
-    </div>
-    <div class="prog-bar"><div class="prog-fill" id="pprog-${l.id}" style="width:${Math.round(1/qa.length*100)}%;background:var(--purple)"></div></div>
-    <div class="tbar"><div class="tbar-fill" id="ptbar-${l.id}" style="width:100%"></div></div>
-    <div class="player-q" id="ptext-${l.id}">${qa[0].q}</div>
-    <div class="player-a" id="pans-${l.id}">${qa[0].a}</div>
-    <div class="player-btns">
-      <button class="pbtn" onclick="playerPrev('${l.id}')">←</button>
-      <button class="pbtn main" id="pbtn-${l.id}" onclick="playerToggle('${l.id}')">▶ Play</button>
-      <button class="pbtn" onclick="playerSkip('${l.id}')">R</button>
-      <button class="pbtn" onclick="playerNext('${l.id}')">→</button>
-    </div>
-  </div>
-  <div class="tts-card">
-    <div class="tts-label">Voz (TTS nativo del dispositivo)</div>
-    <div class="tts-speed">
-      <label>Velocidad</label>
-      <input type="range" min="1" max="20" value="9" step="1" id="tts-rate-${l.id}" oninput="document.getElementById('tts-rate-lbl-${l.id}').textContent=(this.value/10).toFixed(1)+'x'">
-      <span id="tts-rate-lbl-${l.id}">0.9x</span>
-    </div>
-    <button class="tts-full-btn" id="tts-full-btn-${l.id}" onclick="toggleFullTTS('${l.id}')">Escuchar todo seguido</button>
-  </div>
-  <div class="section-lbl">Todas las preguntas</div>
-  ${qaHtml}
-  <div class="bottom-bar">
-    <button class="bottom-btn primary" onclick="switchTab('quiz',document.querySelectorAll('.tab')[2])">Ir al simulacro →</button>
-  </div>`;
 }
 
 function restorePlayer(lid) {
@@ -724,18 +656,16 @@ function stopTTS() {
 // ── QUIZ ──────────────────────────────────────────────────────────────────
 async function loadQuiz(l) {
   const box = document.getElementById('tab-quiz');
-  // Intentar desde localStorage primero
-  const cachedQs = loadContent(l.id, 'quiz') || getProgress(l.id, 'quizData');
+  const savedQs = getProgress(l.id, 'quizData');
   const savedAns = getProgress(l.id, 'quizAnswers') || {};
-  if(cachedQs) {
-    saveProgress(l.id, 'quizData', cachedQs);
-    renderQuiz(l.id, cachedQs, savedAns);
+  if(cache[l.id+'_quiz'] && savedQs) {
+    box.innerHTML = cache[l.id+'_quiz'];
+    rebindQuiz(l.id, savedQs, savedAns);
     return;
   }
-  box.innerHTML = `<div class="loading-box"><div class="spinner"></div>Generando simulacro... (solo esta vez)</div>`;
+  box.innerHTML = `<div class="loading-box"><div class="spinner"></div>Generando simulacro...</div>`;
   try {
     const d = await callClaude(prompt_quiz(l));
-    saveContent(l.id, 'quiz', d.questions);
     saveProgress(l.id, 'quizData', d.questions);
     renderQuiz(l.id, d.questions, {});
   } catch(e) {
