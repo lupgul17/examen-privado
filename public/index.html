@@ -134,6 +134,10 @@
   .pbtn.main { background: var(--purple); color: white; border-color: var(--purple); }
   .pbtn.main:active { background: var(--purple-dark); }
 
+  /* AUDIO LESSON PLAYER */
+  .audio-lesson-player { background: var(--bg2); border-radius: var(--radius); padding: 12px 14px; margin-top: 14px; margin-bottom: 4px; border: 0.5px solid var(--border); }
+  .key-point { transition: background 0.3s, padding 0.3s; border-radius: 8px; }
+
   /* TTS CONTROLS */
   .tts-card { background: var(--bg2); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; }
   .tts-label { font-size: 12px; color: var(--text3); margin-bottom: 6px; }
@@ -395,6 +399,7 @@ function renderHome() {
 }
 
 function goHome() {
+  Object.keys(alpState).forEach(k=>delete alpState[k]);
   stopTTS();
   document.getElementById('screen-lesson').classList.remove('active');
   document.getElementById('screen-home').classList.add('active');
@@ -403,6 +408,7 @@ function goHome() {
 
 // ── LESSON ────────────────────────────────────────────────────────────────
 function openLesson(idx) {
+  Object.keys(alpState).forEach(k=>delete alpState[k]);
   stopTTS();
   curIdx = idx;
   const l = ALL[idx];
@@ -499,14 +505,151 @@ async function loadExplain(l) {
 }
 
 function buildExplainHtml(l, d) {
-  const pts = d.points.map(p=>`<div class="key-point"><div class="kp-dot"></div><div class="kp-body"><span class="kp-title">${p.title}. </span>${p.body}</div></div>`).join('');
+  const lid = l.id;
+  const pts = d.points.map((p,i)=>`<div class="key-point" id="kp-${lid}-${i}"><div class="kp-dot" id="kpdot-${lid}-${i}"></div><div class="kp-body"><span class="kp-title">${p.title}. </span>${p.body}</div></div>`).join('');
+  const dataEnc = JSON.stringify(d).replace(/"/g,'&quot;');
   return `<div class="tags-row">${l.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
   <div class="section-lbl">Puntos clave</div>${pts}
-  <div class="summary-box">${d.summary}</div>
-  <button class="tts-full-btn" style="margin-top:14px;background:var(--purple)" onclick="readExplain(${JSON.stringify(d).replace(/"/g,'&quot;')})">Escuchar explicación completa</button>
+  <div class="summary-box" id="kp-${lid}-summary">${d.summary}</div>
+  <div class="audio-lesson-player" id="alp-${lid}">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--text3)" id="alp-status-${lid}">Lección en audio</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:11px;color:var(--text3)">Vel.</span>
+        <input type="range" min="5" max="18" value="9" step="1" style="width:64px" id="alp-rate-${lid}" oninput="document.getElementById('alp-rate-lbl-${lid}').textContent=(this.value/10).toFixed(1)+'x'">
+        <span style="font-size:11px;color:var(--text3);min-width:28px" id="alp-rate-lbl-${lid}">0.9x</span>
+      </div>
+    </div>
+    <div class="prog-bar" style="margin-bottom:10px"><div class="prog-fill" id="alp-prog-${lid}" style="width:0%;background:var(--purple)"></div></div>
+    <div style="display:flex;gap:6px">
+      <button class="pbtn" onclick="alpPrev('${lid}')" style="padding:9px 12px">←</button>
+      <button class="pbtn main" id="alp-btn-${lid}" onclick="alpToggle('${lid}',${dataEnc})" style="flex:1">▶ Escuchar lección</button>
+      <button class="pbtn" onclick="alpNext('${lid}')" style="padding:9px 12px">→</button>
+    </div>
+  </div>
   <div class="bottom-bar" style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border)">
     <button class="bottom-btn primary" onclick="switchTab('audio',document.querySelectorAll('.tab')[1])">Audio Q&A →</button>
   </div>`;
+}
+
+// ── AUDIO LESSON PLAYER ───────────────────────────────────────────────────
+const alpState = {};
+
+function alpToggle(lid, data) {
+  if(!alpState[lid]) alpState[lid] = { data, cur:0, playing:false };
+  const s = alpState[lid];
+  if(s.playing) { alpPause(lid); }
+  else { s.playing=true; alpPlay(lid); }
+}
+
+function alpPlay(lid) {
+  const s = alpState[lid];
+  if(!s) return;
+  const pts = s.data.points;
+  const total = pts.length + 1; // +1 for summary
+  const btn = document.getElementById('alp-btn-'+lid);
+  if(btn) btn.textContent='⏸ Pausar';
+
+  const getText = (i) => i < pts.length
+    ? pts[i].title + '. ' + pts[i].body
+    : 'Resumen: ' + s.data.summary;
+
+  const getEl = (i) => i < pts.length
+    ? document.getElementById('kp-'+lid+'-'+i)
+    : document.getElementById('kp-'+lid+'-summary');
+
+  // Highlight current
+  alpHighlight(lid, s.cur, pts.length);
+
+  const pct = Math.round((s.cur / total) * 100);
+  const progEl = document.getElementById('alp-prog-'+lid);
+  if(progEl) progEl.style.width = pct+'%';
+  const statusEl = document.getElementById('alp-status-'+lid);
+  if(statusEl) statusEl.textContent = s.cur < pts.length ? 'Punto '+(s.cur+1)+' de '+pts.length : 'Resumen';
+
+  const rate = parseFloat(document.getElementById('alp-rate-'+lid)?.value||9)/10;
+  speakText(getText(s.cur), rate, () => {
+    if(!s.playing) return;
+    alpHighlight(lid, s.cur, pts.length, false);
+    if(s.cur < total-1) {
+      s.cur++;
+      alpPlay(lid);
+    } else {
+      // Finished
+      s.playing=false; s.cur=0;
+      alpHighlight(lid, -1, pts.length);
+      if(progEl) progEl.style.width='100%';
+      if(statusEl) statusEl.textContent='Completado';
+      if(btn) btn.textContent='▶ Escuchar lección';
+    }
+  });
+}
+
+function alpPause(lid) {
+  const s = alpState[lid];
+  if(!s) return;
+  s.playing=false;
+  stopTTS();
+  const btn = document.getElementById('alp-btn-'+lid);
+  if(btn) btn.textContent='▶ Continuar';
+  const statusEl = document.getElementById('alp-status-'+lid);
+  if(statusEl) statusEl.textContent='Pausado en punto '+(s.cur+1);
+}
+
+function alpNext(lid) {
+  const s = alpState[lid];
+  if(!s) return;
+  stopTTS(); s.playing=false;
+  const total = s.data.points.length + 1;
+  alpHighlight(lid, s.cur, s.data.points.length, false);
+  if(s.cur < total-1) s.cur++;
+  const btn = document.getElementById('alp-btn-'+lid);
+  if(btn) btn.textContent='▶ Continuar';
+  const pct = Math.round((s.cur/total)*100);
+  const progEl = document.getElementById('alp-prog-'+lid);
+  if(progEl) progEl.style.width=pct+'%';
+  const statusEl = document.getElementById('alp-status-'+lid);
+  if(statusEl) statusEl.textContent = s.cur < s.data.points.length ? 'Punto '+(s.cur+1)+' de '+s.data.points.length : 'Resumen';
+  alpHighlight(lid, s.cur, s.data.points.length);
+}
+
+function alpPrev(lid) {
+  const s = alpState[lid];
+  if(!s) return;
+  stopTTS(); s.playing=false;
+  alpHighlight(lid, s.cur, s.data.points.length, false);
+  if(s.cur > 0) s.cur--;
+  const btn = document.getElementById('alp-btn-'+lid);
+  if(btn) btn.textContent='▶ Continuar';
+  const total = s.data.points.length + 1;
+  const pct = Math.round((s.cur/total)*100);
+  const progEl = document.getElementById('alp-prog-'+lid);
+  if(progEl) progEl.style.width=pct+'%';
+  const statusEl = document.getElementById('alp-status-'+lid);
+  if(statusEl) statusEl.textContent = s.cur < s.data.points.length ? 'Punto '+(s.cur+1)+' de '+s.data.points.length : 'Resumen';
+  alpHighlight(lid, s.cur, s.data.points.length);
+}
+
+function alpHighlight(lid, cur, ptLen, on=true) {
+  // clear all
+  for(let i=0;i<ptLen;i++){
+    const el = document.getElementById('kp-'+lid+'-'+i);
+    if(el) { el.style.background=''; el.style.borderRadius=''; el.style.padding=''; el.style.margin=''; el.style.transition='background 0.3s'; }
+    const dot = document.getElementById('kpdot-'+lid+'-'+i);
+    if(dot) dot.style.background='';
+  }
+  const sum = document.getElementById('kp-'+lid+'-summary');
+  if(sum) { sum.style.borderLeft=''; sum.style.background=''; }
+  if(!on || cur<0) return;
+  if(cur < ptLen) {
+    const el = document.getElementById('kp-'+lid+'-'+cur);
+    if(el) { el.style.background='var(--purple-light)'; el.style.borderRadius='8px'; el.style.padding='6px 8px'; el.style.margin='-6px -8px'; }
+    const dot = document.getElementById('kpdot-'+lid+'-'+cur);
+    if(dot) dot.style.background='var(--purple)';
+    if(el) el.scrollIntoView({behavior:'smooth', block:'nearest'});
+  } else {
+    if(sum) { sum.style.borderLeft='3px solid var(--purple)'; sum.style.background='var(--purple-light)'; sum.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  }
 }
 
 function readExplain(data) {
