@@ -186,7 +186,7 @@
 </head>
 <body>
 
-<!-- HOME -->
+<!-- HOME: areas -->
 <div id="screen-home" class="screen active">
   <div style="padding:16px 16px 0">
     <div id="install-banner" class="install-banner" style="display:none">
@@ -195,7 +195,20 @@
     </div>
     <div class="home-header">
       <h1>Hola, Luis</h1>
-      <p>Examen privado · agosto 2025 · 14 lecciones</p>
+      <p>Examen privado · 6 de julio de 2025</p>
+    </div>
+    <div id="exam-countdown" style="background:var(--purple-light);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
+      <div style="text-align:center;min-width:56px">
+        <div style="font-size:32px;font-weight:700;color:var(--purple);line-height:1" id="days-num">--</div>
+        <div style="font-size:10px;font-weight:600;color:var(--purple-text);text-transform:uppercase;letter-spacing:.06em">días</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500;color:var(--purple-text)" id="days-msg">Calculando...</div>
+        <div style="height:4px;background:rgba(127,119,221,0.2);border-radius:2px;overflow:hidden;margin-top:6px">
+          <div id="days-prog" style="height:100%;background:var(--purple);border-radius:2px;transition:width 0.5s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--purple-text);margin-top:4px;opacity:0.7" id="days-sub"></div>
+      </div>
     </div>
     <div class="stats-grid">
       <div class="stat-card">
@@ -204,19 +217,31 @@
       </div>
       <div class="stat-card">
         <div class="stat-label">Completadas</div>
-        <div class="stat-val" id="home-done">0/14</div>
+        <div class="stat-val" id="home-done">0</div>
       </div>
       <div class="stat-card" style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:10px 12px">
         <div>
           <div class="stat-label">Guardadas sin internet</div>
-          <div style="font-size:16px;font-weight:600;color:var(--teal)" id="home-cached">0/14</div>
+          <div style="font-size:16px;font-weight:600;color:var(--teal)" id="home-cached">0</div>
         </div>
         <button onclick="clearAllCache()" style="background:transparent;border:0.5px solid var(--border2);border-radius:8px;padding:5px 10px;font-size:11px;color:var(--text3);cursor:pointer">Limpiar caché</button>
       </div>
     </div>
     <div id="home-area-bars"></div>
   </div>
-  <div style="padding:0 16px" id="home-lesson-list"></div>
+  <div style="padding:0 16px" id="home-area-list"></div>
+</div>
+
+<!-- SUBTOPIC: lessons within an area's subtopic -->
+<div id="screen-subtopic" class="screen">
+  <div class="nav">
+    <button class="nav-back" onclick="goHome()">← Inicio</button>
+    <div style="flex:1;overflow:hidden">
+      <div class="nav-title" id="sub-area-lbl" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div class="nav-sub" id="sub-title-lbl"></div>
+    </div>
+  </div>
+  <div style="padding:0 16px" id="subtopic-lesson-list"></div>
 </div>
 
 <!-- LESSON -->
@@ -247,192 +272,409 @@
 </div>
 
 <script>
-// ── DATA ──────────────────────────────────────────────────────────────────
+// ── DATA: 3-level structure Area → Subtopic → Lesson ─────────────────────
 const AREAS = [
-  { name:"Bases de Datos", color:"teal", lessons:[
-    { id:"bd1", title:"Teoría y conceptos de BD", tags:["DBMS","DDL","DML","Arquitectura","Usuarios"] },
-    { id:"bd2", title:"Tipos y modelado de BD", tags:["ER","Jerárquico","Red","OO","Estrategias"] },
-    { id:"bd3", title:"Modelo relacional y SQL", tags:["Normalización","SQL","Triggers","Stored Procedures"] },
-    { id:"bd4", title:"Plataformas y seguridad de BD", tags:["Distribuidas","Minería","Respaldos","Recuperación"] }
+  { name:"Bases de Datos", color:"teal", subtopics:[
+    { id:"bd1", title:"1.1 Teoría de bases de datos", lessons:[
+      { id:"bd1a", title:"Conceptos y contexto de BD", tags:["Base de datos","Ingeniería de software","Ventajas ambiente BD","Dato vs información","Sistema de información"] },
+      { id:"bd1b", title:"Arquitectura y componentes de un DBMS", tags:["Arquitectura DBMS","Niveles externo conceptual interno","Independencia de datos","Componentes DBMS","Motor de BD"] },
+      { id:"bd1c", title:"DDL y DML", tags:["DDL Data Definition Language","DML Data Manipulation Language","CREATE TABLE","ALTER DROP","SELECT INSERT UPDATE DELETE"] },
+      { id:"bd1d", title:"Gestores de BD y usuarios", tags:["Funciones del gestor","DBA administrador","Usuario final","Programador aplicaciones","Tipos de usuarios BD"] }
+    ]},
+    { id:"bd2", title:"1.2 Tipos y modelado de BD", lessons:[
+      { id:"bd2a", title:"Modelos jerárquico y en red", tags:["Modelo jerárquico","Modelo en red","Registros y punteros","Diferencias con relacional","Historia modelos BD"] },
+      { id:"bd2b", title:"Modelo orientado a objetos", tags:["BD orientada a objetos","Clases y objetos en BD","Herencia en BD","Persistencia de objetos","OODBMS"] },
+      { id:"bd2c", title:"Modelo Entidad-Relación", tags:["Entidad","Atributo","Relación","Cardinalidad 1:1 1:N M:N","Llave primaria","Diagrama ER","Notación Chen"] },
+      { id:"bd2d", title:"Modelo ER extendido y estrategias", tags:["Generalización especialización","Herencia ER","Agregación","Estrategias top-down bottom-up","Modelado conceptual"] }
+    ]},
+    { id:"bd3", title:"1.3 Desarrollo de bases de datos", lessons:[
+      { id:"bd3a", title:"Modelo relacional y normalización", tags:["Tabla relación","Tupla atributo dominio","Llave primaria foránea","1FN 2FN 3FN BCNF","Dependencia funcional transitiva","Redundancia"] },
+      { id:"bd3b", title:"SQL — consultas y JOIN", tags:["SELECT FROM WHERE","GROUP BY HAVING","ORDER BY","INNER JOIN LEFT JOIN RIGHT JOIN FULL OUTER JOIN","Subconsultas","DISTINCT COUNT SUM AVG"] },
+      { id:"bd3c", title:"Funciones y procedimientos almacenados", tags:["Funciones SQL","Stored Procedures","Parámetros IN OUT","CREATE PROCEDURE","EXEC CALL","Ventajas procedimientos"] },
+      { id:"bd3d", title:"Disparadores (Triggers)", tags:["Trigger definición","BEFORE AFTER trigger","INSERT UPDATE DELETE trigger","FOR EACH ROW","Casos de uso triggers","CREATE TRIGGER"] }
+    ]},
+    { id:"bd4", title:"1.4 BD en diferentes plataformas", lessons:[
+      { id:"bd4a", title:"Banco de datos y minería de datos", tags:["Data warehouse","OLAP OLTP","Data mining","KDD proceso","Algoritmos clasificación clustering","Business intelligence"] },
+      { id:"bd4b", title:"Bases de datos distribuidas", lessons:[], tags:["BD distribuida","Fragmentación horizontal vertical","Replicación de datos","Transparencia distribución","CAP theorem","Consistencia disponibilidad"] },
+      { id:"bd4c", title:"SGBD en el mercado actual", tags:["MySQL","PostgreSQL","Oracle","SQL Server","NoSQL MongoDB","Redis","Comparación SGBD","BD relacionales vs NoSQL"] }
+    ]},
+    { id:"bd5", title:"1.5 Seguridad de datos", lessons:[
+      { id:"bd5a", title:"Codificación y teoría de la información", tags:["Teoría información Shannon","Entropía","Bits de información","Código de longitud fija y variable","Redundancia","Canal de comunicación"] },
+      { id:"bd5b", title:"Compresión: Huffman y LZW", tags:["Árbol de Huffman","Código Huffman paso a paso","LZW Lempel-Ziv-Welch","Compresión sin pérdida","Razón de compresión","Aplicaciones compresión"] },
+      { id:"bd5c", title:"Detección y corrección de errores", tags:["Bit de paridad","Código Hamming","Distancia de Hamming","Detección corrección errores","CRC","Redundancia cíclica"] },
+      { id:"bd5d", title:"Respaldos y recuperación", tags:["Tipos de respaldo completo incremental diferencial","Política de respaldo","Recovery","Punto de recuperación RPO RTO","Transacciones ACID","Rollback"] }
+    ]}
   ]},
-  { name:"Desarrollo de Software", color:"purple", lessons:[
-    { id:"ds1", title:"Estructuras de datos", tags:["Estáticas","Dinámicas","Listas","Árboles","Pilas","Colas"] },
-    { id:"ds2", title:"Metodologías y modelos", tags:["Cascada","Scrum","RUP","Espiral","Ágil"] },
-    { id:"ds3", title:"Arquitecturas de software", tags:["Patrones","Métricas","Documentación","Costos"] },
-    { id:"ds4", title:"Análisis de sistemas", tags:["Ciclo de vida","POO","Riesgo","UML","Patrones de diseño"] },
-    { id:"ds5", title:"Algoritmos y lenguajes", tags:["C","C++","Java","Ordenación","Recursividad","Archivos"] }
+  { name:"Desarrollo de Software", color:"purple", subtopics:[
+    { id:"ds1", title:"2.1 Estructuras de datos", lessons:[
+      { id:"ds1a", title:"Estructuras estáticas", tags:["Arreglos unidimensionales multidimensionales","Matrices","Registros structs","Memoria estática","Stack vs heap","Acceso directo por índice"] },
+      { id:"ds1b", title:"Listas y estructuras dinámicas", tags:["Lista enlazada simple","Lista doblemente enlazada","Lista circular","Nodo puntero","Inserción eliminación en listas","Memoria dinámica"] },
+      { id:"ds1c", title:"Pilas y colas", tags:["Pila stack LIFO","PUSH POP","Cola queue FIFO","ENQUEUE DEQUEUE","Cola de prioridad","Aplicaciones pilas colas","Recursividad y pila"] },
+      { id:"ds1d", title:"Árboles y grafos", tags:["Árbol binario","Recorrido preorden inorden postorden","Árbol AVL balanceado","Árbol B","Grafo dirigido no dirigido","BFS DFS","Representación adyacencia"] }
+    ]},
+    { id:"ds2", title:"2.2 Métodos y modelos de desarrollo", lessons:[
+      { id:"ds2a", title:"Evolución y generaciones de metodologías", tags:["Historia metodologías","Primera segunda tercera cuarta generación","Características metodología deseable","Metodología vs ciclo de vida","Clasificación por enfoque"] },
+      { id:"ds2b", title:"Modelos tradicionales: Cascada y Espiral", tags:["Cascada Waterfall fases","Ventajas desventajas cascada","Espiral Boehm","Análisis de riesgos espiral","Prototipado","Modelos predictivos"] },
+      { id:"ds2c", title:"Metodologías ágiles: Scrum y XP", tags:["Scrum sprints","Product Owner Scrum Master","Backlog","Daily Scrum","Extreme Programming XP","Pair programming","TDD","Kanban"] },
+      { id:"ds2d", title:"RUP y modelos de proceso", tags:["RUP fases inicio elaboración construcción transición","UML en RUP","Casos de uso","Flujos de trabajo RUP","Comparación ágil vs tradicional","CMMI"] }
+    ]},
+    { id:"ds3", title:"2.3 Arquitecturas de software", lessons:[
+      { id:"ds3a", title:"Documentos de diseño y arquitecturas básicas", tags:["Documento diseño arquitectónico","MVC Modelo Vista Controlador","Arquitectura capas","Microservicios","Cliente servidor","SOA","Arquitectura hexagonal"] },
+      { id:"ds3b", title:"Métricas, costos y revisiones", tags:["Métricas de software","Líneas de código LOC","Puntos de función","Complejidad ciclomática","Estimación de costos","COCOMO","Revisiones técnicas formales"] },
+      { id:"ds3c", title:"Trabajo en equipo y documentación", tags:["Roles en equipo desarrollo","Matriz de trazado","Documentación técnica","UML diagramas","Gestión configuración","Control de versiones Git"] }
+    ]},
+    { id:"ds4", title:"2.4 Análisis de sistemas", lessons:[
+      { id:"ds4a", title:"Conceptos y ciclo de vida del análisis", tags:["Análisis de sistemas","Ciclo de vida SDLC","Modelos de proceso","Levantamiento de requerimientos","Requerimientos funcionales no funcionales","Casos de uso UML"] },
+      { id:"ds4b", title:"Desarrollo orientado a objetos y aspectos", tags:["POO clases objetos","Herencia polimorfismo encapsulamiento","Orientado a aspectos AOP","Orientado a servicios SOA","Desarrollo orientado a componentes"] },
+      { id:"ds4c", title:"Patrones de diseño y reutilización", tags:["Patrones creacionales Singleton Factory","Patrones estructurales Adapter Facade","Patrones de comportamiento Observer Strategy","Portabilidad interoperabilidad","Frameworks reutilización"] },
+      { id:"ds4d", title:"Gestión del riesgo e implantación", tags:["Administración del riesgo","Identificación análisis riesgos","Mitigación contingencia","Tipos de implantación directa paralela piloto","Plan de implantación","Entrega del sistema"] }
+    ]},
+    { id:"ds5", title:"2.5 Lógica y lenguajes de programación", lessons:[
+      { id:"ds5a", title:"Lenguajes C y C++", tags:["Tipos de datos C","Punteros","Manejo memoria malloc free","Clases C++","Sobrecarga operadores","Templates","STL C++","Compilación enlazado"] },
+      { id:"ds5b", title:"Java y programación orientada a objetos", tags:["Java JVM","Clases interfaces abstractas","Herencia Java","Excepciones try catch","Colecciones ArrayList HashMap","Hilos Thread","Java vs C++"] },
+      { id:"ds5c", title:"Algoritmos de ordenación y búsqueda", tags:["Burbuja bubble sort","Selección insertion sort","QuickSort","MergeSort","Búsqueda lineal","Búsqueda binaria","Complejidad O(n) O(log n) O(n²)"] },
+      { id:"ds5d", title:"Recursividad, archivos y comunicación", tags:["Recursividad caso base caso recursivo","Factorial Fibonacci torres Hanoi","Manejo de archivos en C","Lectura escritura registros","Puertos serie paralelo","Comunicación externa"] }
+    ]}
   ]},
-  { name:"Redes y Sistemas Operativos", color:"coral", lessons:[
-    { id:"rso1", title:"Sistemas operativos", tags:["Procesos","Memoria","Sincronización","Móviles","Seguridad"] },
-    { id:"rso2", title:"Teoría de la información", tags:["Entropía","Compresión","Codificación","Huffman","Hamming"] },
-    { id:"rso3", title:"Teoría de redes", tags:["OSI","TCP/IP","Servicios","Conectividad","Protocolos"] },
-    { id:"rso4", title:"Hardware, software y seguridad de redes", tags:["Dispositivos","Firewall","VPN","Topologías"] }
+  { name:"Redes y Sistemas Operativos", color:"coral", subtopics:[
+    { id:"rso1", title:"3.1 Sistemas operativos actuales", lessons:[
+      { id:"rso1a", title:"Evolución y tipos de SO", tags:["Historia SO","SO monolítico","SO por capas","Microkernel","SO tiempo real","SO distribuido","Windows Linux macOS Android"] },
+      { id:"rso1b", title:"Procesos y sincronización", tags:["Proceso estado","PCB bloque control","Planificación FIFO Round Robin SJF","Deadlock interbloqueo","Semáforos mutex","Condición de carrera","Monitor"] },
+      { id:"rso1c", title:"Gestión de memoria y archivos", tags:["Memoria virtual","Paginación segmentación","Algoritmos reemplazo LRU FIFO","Sistema de archivos FAT NTFS ext4","Inodos","Directorios","Memoria caché"] },
+      { id:"rso1d", title:"Multiprocesadores, seguridad y SO móviles", tags:["SMP multiprocesador simétrico","SO distribuidos","Seguridad protección SO","Android iOS arquitectura","Virtualización","Hipervisor","Contenedores Docker"] }
+    ]},
+    { id:"rso2", title:"3.2 Técnicas y procesos de la información", lessons:[
+      { id:"rso2a", title:"Teoría de la información y entropía", tags:["Shannon entropía","H = -suma p log p","Bits información","Fuente de información","Canal ruidoso","Capacidad canal","Redundancia información"] },
+      { id:"rso2b", title:"Algoritmos de compresión", tags:["Huffman árbol y codificación","LZW Lempel Ziv Welch","Compresión sin pérdida lossless","Run-length encoding","Compresión con pérdida lossy JPEG MP3","Razón de compresión"] },
+      { id:"rso2c", title:"Detección y corrección de errores", tags:["Paridad simple doble","Código Hamming construcción","Distancia mínima Hamming","CRC polinomio generador","Códigos Reed-Solomon","FEC Forward Error Correction"] },
+      { id:"rso2d", title:"Seguridad informática", tags:["Criptografía simétrica AES DES","Criptografía asimétrica RSA","Hash SHA MD5","Certificados digitales PKI","Firma digital","Malware tipos","Vulnerabilidades OWASP"] }
+    ]},
+    { id:"rso3", title:"3.3 Teoría de redes y conectividad", lessons:[
+      { id:"rso3a", title:"Fundamentos y modelo OSI", tags:["Red de computadoras definición","Topologías bus estrella anillo malla","Modelo OSI 7 capas","Función de cada capa OSI","PDU por capa","Encapsulamiento datos"] },
+      { id:"rso3b", title:"TCP/IP y protocolos por capa", tags:["Modelo TCP/IP 4 capas","IP IPv4 IPv6","TCP UDP diferencias","HTTP HTTPS FTP SMTP DNS DHCP","ARP","ICMP ping","Puerto número de servicio"] },
+      { id:"rso3c", title:"Implementación de servicios de red", tags:["Servidor web","Servidor DNS configuración","DHCP servidor","NAT traducción direcciones","Subneteo CIDR","Direccionamiento IP clases","Servicios de directorio LDAP"] }
+    ]},
+    { id:"rso4", title:"3.4 Hardware y software de redes", lessons:[
+      { id:"rso4a", title:"Dispositivos de red", tags:["Hub repetidor","Switch capa 2","Router capa 3","Bridge","Access Point WiFi","Módem","NIC tarjeta red","Función de cada dispositivo"] },
+      { id:"rso4b", title:"Medios de transmisión y topologías", tags:["Cable UTP categorías","Fibra óptica monomodo multimodo","Cable coaxial","Transmisión inalámbrica WiFi","IEEE 802.11","Ancho de banda latencia","Topologías lógicas físicas"] }
+    ]},
+    { id:"rso5", title:"3.5 Seguridad de redes", lessons:[
+      { id:"rso5a", title:"Firewall, VPN e IDS", tags:["Firewall packet filtering stateful","DMZ zona desmilitarizada","VPN túnel IPSec SSL","IDS IPS detección intrusión","Proxy","NAT como seguridad","ACL listas control acceso"] },
+      { id:"rso5b", title:"Ataques y políticas de seguridad", tags:["DoS DDoS ataque","Man in the middle","Phishing ingeniería social","SQL injection XSS","Políticas de seguridad","ISO 27001","Plan de continuidad","Auditoría de seguridad"] }
+    ]}
   ]},
-  { name:"Área Profesional", color:"amber", lessons:[
-    { id:"ap1", title:"Arquitectura de computadoras", tags:["Von Neumann","CISC","RISC","Amdahl","Paralelismo"] },
-    { id:"ap2", title:"Electrónica, auditoría y protección", tags:["Lógica digital","Auditoría","UPS","Contingencia","ESD"] }
+  { name:"Área Profesional", color:"amber", subtopics:[
+    { id:"ap1", title:"4.1 Arquitectura de la computadora", lessons:[
+      { id:"ap1a", title:"Modelo Von Neumann y evolución histórica", tags:["Modelo Von Neumann CPU memoria E/S bus","Unidad aritmético lógica ALU","Unidad de control UC","Registros PC IR","Generaciones computadoras","ENIAC mainframe PC"] },
+      { id:"ap1b", title:"CISC, RISC y Ley de Amdahl", tags:["CISC instrucciones complejas","RISC instrucciones reducidas","Diferencias CISC RISC","Ley de Amdahl aceleración","Speedup paralelo","Ejemplos Intel x86 CISC ARM RISC"] },
+      { id:"ap1c", title:"Paralelismo y arquitecturas avanzadas", tags:["Máquinas multi-nivel","Pipeline segmentación","Multiprocesadores simétricos SMP","Computación vectorial SIMD","Cluster Beowulf","Grid computing","Hardware software empresarial"] }
+    ]},
+    { id:"ap2", title:"4.2 Aplicaciones electrónicas", lessons:[
+      { id:"ap2a", title:"Lógica digital y álgebra de Boole", tags:["Compuertas AND OR NOT NAND NOR XOR XNOR","Álgebra de Boole","Tabla de verdad","Mapa de Karnaugh simplificación","Circuitos combinacionales","Sumador semisumador"] },
+      { id:"ap2b", title:"Subsistemas digitales y transmisión", tags:["Flip-flop SR D JK T","Registros contadores","Conversión ADC DAC","Señales analógicas digitales","Modulación AM FM","Medios de transmisión digital","Subsistema físico informático"] }
+    ]},
+    { id:"ap3", title:"4.3 Protección eléctrica y hardware", lessons:[
+      { id:"ap3a", title:"Infraestructura de laboratorio y servidores", tags:["Diseño laboratorio cómputo","Cuarto de servidores datacenter","Rack montaje","Cableado estructurado","Control de acceso físico","Normativas TIA EIA","Piso falso techo falso"] },
+      { id:"ap3b", title:"Sistemas de protección eléctrica y contingencia", tags:["UPS tipos on-line off-line","Regulador de voltaje","Puesta a tierra","Supresores de picos","Temperatura humedad ESD","Plan de contingencia","Planes de recuperación ante desastres DRP"] }
+    ]},
+    { id:"ap4", title:"4.4 Auditoría de sistemas", lessons:[
+      { id:"ap4a", title:"Conceptos y planeación de auditoría", tags:["Auditoría de sistemas definición","Objetivos auditoría","Planeación auditoría","Alcance y enfoque","Riesgo de auditoría","Evidencia auditoría","Auditor de sistemas perfil"] },
+      { id:"ap4b", title:"Fases y evaluación", tags:["Fases auditoría: planificación ejecución informe","Auditoría función informática","Evaluación sistemas de información","Evaluación proceso datos","Evaluación equipos cómputo","COBIT ITIL marcos referencia"] },
+      { id:"ap4c", title:"Evaluación de seguridad y estrategia", tags:["Evaluación seguridad física lógica","Controles internos","Interpretación resultados auditoría","Selección estrategia auditoría","Informe de auditoría","Recomendaciones seguimiento","ISO 27001 en auditoría"] }
+    ]}
   ]}
 ];
 
-const ALL = AREAS.flatMap(a => a.lessons.map(l => ({...l, areaName:a.name, areaColor:a.color})));
+// Flatten all lessons for global navigation
+const ALL_LESSONS = [];
+AREAS.forEach(a => a.subtopics.forEach(st => st.lessons.forEach(l => {
+  ALL_LESSONS.push({...l, areaName:a.name, areaColor:a.color, subtopicTitle:st.title, subtopicId:st.id});
+})));
+
 const COLOR = { teal:'#1D9E75', purple:'#7F77DD', coral:'#D85A30', amber:'#BA7517' };
 const COLOR_LIGHT = { teal:'var(--teal-light)', purple:'var(--purple-light)', coral:'var(--coral-light)', amber:'var(--amber-light)' };
-const COLOR_TEXT = { teal:'var(--teal-text)', purple:'var(--purple-text)', coral:'var(--coral-text)', amber:'var(--amber-text)' };
+const COLOR_TEXT  = { teal:'var(--teal-text)',  purple:'var(--purple-text)',  coral:'var(--coral-text)',  amber:'var(--amber-text)'  };
 
-let curIdx = 0;
+let curLessonIdx = 0;
+let curAreaIdx = 0;
+let curSubtopicId = null;
 let cache = {};
 let playerState = {};
-let ttsState = { utterance: null, playing: false, mode: 'player' };
+let alpState = {};
+let ttsState = { utterance:null, playing:false, mode:'player' };
 let deferredPrompt = null;
 
 // ── LOCALSTORAGE ──────────────────────────────────────────────────────────
 function saveProgress(lessonId, key, val) {
-  const data = JSON.parse(localStorage.getItem('ep_progress') || '{}');
-  if(!data[lessonId]) data[lessonId] = {};
-  data[lessonId][key] = val;
+  const data = JSON.parse(localStorage.getItem('ep_progress')||'{}');
+  if(!data[lessonId]) data[lessonId]={};
+  data[lessonId][key]=val;
   localStorage.setItem('ep_progress', JSON.stringify(data));
 }
 function getProgress(lessonId, key) {
-  const data = JSON.parse(localStorage.getItem('ep_progress') || '{}');
+  const data = JSON.parse(localStorage.getItem('ep_progress')||'{}');
   return data[lessonId]?.[key];
 }
-function getAllProgress() {
-  return JSON.parse(localStorage.getItem('ep_progress') || '{}');
-}
+function getAllProgress() { return JSON.parse(localStorage.getItem('ep_progress')||'{}'); }
 
-// Caché de contenido generado — persiste entre sesiones, evita llamadas repetidas a la API
 function saveContent(lessonId, type, data) {
-  try {
-    localStorage.setItem('ep_content_' + lessonId + '_' + type, JSON.stringify(data));
-  } catch(e) {
-    // localStorage lleno — limpiamos el contenido más antiguo y reintentamos
-    clearOldContent();
-    try { localStorage.setItem('ep_content_' + lessonId + '_' + type, JSON.stringify(data)); } catch(e2) {}
-  }
+  try { localStorage.setItem('ep_content_'+lessonId+'_'+type, JSON.stringify(data)); }
+  catch(e) { clearOldContent(); try { localStorage.setItem('ep_content_'+lessonId+'_'+type, JSON.stringify(data)); } catch(e2){} }
 }
 function loadContent(lessonId, type) {
-  try {
-    const raw = localStorage.getItem('ep_content_' + lessonId + '_' + type);
-    return raw ? JSON.parse(raw) : null;
-  } catch(e) { return null; }
+  try { const r=localStorage.getItem('ep_content_'+lessonId+'_'+type); return r?JSON.parse(r):null; } catch(e){return null;}
 }
 function clearOldContent() {
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('ep_content_'));
-  keys.slice(0, Math.ceil(keys.length / 2)).forEach(k => localStorage.removeItem(k));
+  const keys=Object.keys(localStorage).filter(k=>k.startsWith('ep_content_'));
+  keys.slice(0,Math.ceil(keys.length/2)).forEach(k=>localStorage.removeItem(k));
 }
 function getCacheStats() {
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('ep_content_'));
-  const lessons = new Set(keys.map(k => k.split('_')[2]));
-  return { cached: lessons.size, total: ALL.length };
+  const keys=Object.keys(localStorage).filter(k=>k.startsWith('ep_content_'));
+  const lessons=new Set(keys.map(k=>k.replace('ep_content_','').replace(/_explain$|_qa$|_quiz$/,'')));
+  return {cached:lessons.size, total:ALL_LESSONS.length};
+}
+
+// ── COUNTDOWN ────────────────────────────────────────────────────────────
+function updateCountdown() {
+  const exam = new Date('2025-07-06T08:00:00');
+  const now = new Date();
+  const diff = exam - now;
+
+  const el = document.getElementById('exam-countdown');
+  const daysEl = document.getElementById('days-num');
+  const msgEl = document.getElementById('days-msg');
+  const subEl = document.getElementById('days-sub');
+  const progEl = document.getElementById('days-prog');
+  if(!el) return;
+
+  if(diff <= 0) {
+    daysEl.textContent = '0';
+    msgEl.textContent = '¡Hoy es el examen! Mucho éxito, Luis.';
+    subEl.textContent = '';
+    el.style.background = 'var(--teal-light)';
+    daysEl.style.color = 'var(--teal)';
+    progEl.style.background = 'var(--teal)';
+    progEl.style.width = '100%';
+    return;
+  }
+
+  const totalDays = Math.ceil(diff / (1000*60*60*24));
+  const hours = Math.floor((diff % (1000*60*60*24)) / (1000*60*60));
+  const mins = Math.floor((diff % (1000*60*60)) / (1000*60));
+
+  // Start date approx today (April 12 2026... but exam is July 6 2025, so use a fixed start)
+  const start = new Date('2025-04-12');
+  const totalRange = exam - start;
+  const elapsed = now - start;
+  const pct = Math.min(100, Math.max(0, Math.round((elapsed/totalRange)*100)));
+
+  daysEl.textContent = totalDays;
+
+  if(totalDays > 60) {
+    msgEl.textContent = 'Tiempo suficiente — construye el hábito diario.';
+    el.style.background = 'var(--teal-light)';
+    daysEl.style.color = 'var(--teal)';
+    progEl.style.background = 'var(--teal)';
+  } else if(totalDays > 30) {
+    msgEl.textContent = 'Buen ritmo — enfócate en tus áreas más débiles.';
+    el.style.background = 'var(--purple-light)';
+    daysEl.style.color = 'var(--purple)';
+    progEl.style.background = 'var(--purple)';
+  } else if(totalDays > 14) {
+    msgEl.textContent = 'Zona de repaso — consolida lo que ya sabes.';
+    el.style.background = 'var(--amber-light)';
+    daysEl.style.color = 'var(--amber)';
+    progEl.style.background = 'var(--amber)';
+  } else if(totalDays > 3) {
+    msgEl.textContent = 'Semana del examen — simulacros y descanso.';
+    el.style.background = 'var(--coral-light)';
+    daysEl.style.color = 'var(--coral)';
+    progEl.style.background = 'var(--coral)';
+  } else {
+    msgEl.textContent = '¡Ya mero! Confía en lo que estudiastes.';
+    el.style.background = 'var(--coral-light)';
+    daysEl.style.color = 'var(--coral)';
+    progEl.style.background = 'var(--coral)';
+  }
+
+  subEl.textContent = totalDays + (totalDays===1?' día':' días') + ', ' + hours + 'h ' + mins + 'min · 6 de julio de 2025';
+  progEl.style.width = pct + '%';
 }
 
 // ── INSTALL PWA ───────────────────────────────────────────────────────────
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById('install-banner').style.display = 'flex';
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault(); deferredPrompt=e;
+  document.getElementById('install-banner').style.display='flex';
 });
-function installApp() {
-  if(deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; document.getElementById('install-banner').style.display='none'; }
+function installApp(){
+  if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;document.getElementById('install-banner').style.display='none';}
 }
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 
-// ── SERVICE WORKER ────────────────────────────────────────────────────────
-if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
-}
-
-// ── HOME ──────────────────────────────────────────────────────────────────
-function clearAllCache() {
-  if(!confirm('¿Borrar el contenido guardado? El progreso de quizzes se mantiene.')) return;
-  Object.keys(localStorage).filter(k=>k.startsWith('ep_content_')).forEach(k=>localStorage.removeItem(k));
-  Object.keys(cache).forEach(k=>delete cache[k]);
-  renderHome();
-}
-
+// ── HOME (areas) ──────────────────────────────────────────────────────────
 function renderHome() {
   const prog = getAllProgress();
-  const done = ALL.filter(l => prog[l.id]?.done).length;
-  document.getElementById('home-pct').textContent = Math.round(done/ALL.length*100)+'%';
-  document.getElementById('home-done').textContent = done+'/'+ALL.length;
+  const done = ALL_LESSONS.filter(l=>prog[l.id]?.done).length;
+  const total = ALL_LESSONS.length;
+  document.getElementById('home-pct').textContent = Math.round(done/total*100)+'%';
+  document.getElementById('home-done').textContent = done+'/'+total;
   const stats = getCacheStats();
-  const cachedEl = document.getElementById('home-cached');
-  if(cachedEl) cachedEl.textContent = stats.cached+'/'+stats.total;
+  const ce = document.getElementById('home-cached');
+  if(ce) ce.textContent = stats.cached+'/'+stats.total;
 
   // area progress bars
   let barsHtml = '';
-  AREAS.forEach(a => {
-    const d = a.lessons.filter(l => prog[l.id]?.done).length;
-    const pct = Math.round(d/a.lessons.length*100);
+  AREAS.forEach(a=>{
+    const aLessons = a.subtopics.flatMap(st=>st.lessons);
+    const d = aLessons.filter(l=>prog[l.id]?.done).length;
+    const pct = Math.round(d/aLessons.length*100);
     barsHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <div style="font-size:11px;color:var(--text3);width:120px;flex-shrink:0">${a.name}</div>
+      <div style="font-size:11px;color:var(--text3);width:130px;flex-shrink:0">${a.name}</div>
       <div class="prog-bar" style="flex:1;margin:0"><div class="prog-fill" style="width:${pct}%;background:${COLOR[a.color]}"></div></div>
       <div style="font-size:11px;color:var(--text3);width:28px;text-align:right">${pct}%</div>
     </div>`;
   });
   document.getElementById('home-area-bars').innerHTML = `<div style="margin-bottom:16px">${barsHtml}</div>`;
 
-  // lesson list
+  // area cards
   let listHtml = '';
-  AREAS.forEach(a => {
-    const d = a.lessons.filter(l => prog[l.id]?.done).length;
-    listHtml += `<div class="area-section">
-      <div class="area-header">
-        <span class="area-badge" style="background:${COLOR_LIGHT[a.color]};color:${COLOR_TEXT[a.color]}">${a.lessons.length} lecciones</span>
-        <span class="area-name">${a.name}</span>
-        <span class="area-prog">${d}/${a.lessons.length}</span>
-      </div>`;
-    a.lessons.forEach(l => {
-      const gIdx = ALL.findIndex(x => x.id===l.id);
-      const isDone = prog[l.id]?.done;
-      listHtml += `<button class="lesson-btn" onclick="openLesson(${gIdx})">
-        <div class="lesson-check ${isDone?'done':''}"></div>
+  AREAS.forEach((a,ai)=>{
+    const aLessons = a.subtopics.flatMap(st=>st.lessons);
+    const d = aLessons.filter(l=>prog[l.id]?.done).length;
+    listHtml += `<button class="lesson-btn" style="margin-bottom:8px" onclick="openArea(${ai})">
+      <div class="lesson-check" style="border-radius:6px;width:24px;height:24px;background:${COLOR_LIGHT[a.color]};border-color:${COLOR[a.color]};display:flex;align-items:center;justify-content:center">
+        <span style="font-size:10px;font-weight:700;color:${COLOR_TEXT[a.color]}">${d}</span>
+      </div>
+      <div class="lesson-info">
+        <div class="lesson-name">${a.name}</div>
+        <div class="lesson-tags">${a.subtopics.length} subtemas · ${aLessons.length} lecciones · ${d}/${aLessons.length} completadas</div>
+      </div>
+      <div class="lesson-arrow">›</div>
+    </button>`;
+  });
+  document.getElementById('home-area-list').innerHTML = listHtml;
+  updateCountdown();
+}
+
+// ── AREA → shows subtopics ────────────────────────────────────────────────
+function openArea(areaIdx) {
+  curAreaIdx = areaIdx;
+  const a = AREAS[areaIdx];
+  const prog = getAllProgress();
+
+  document.getElementById('screen-home').classList.remove('active');
+  document.getElementById('screen-subtopic').classList.add('active');
+  document.getElementById('sub-area-lbl').textContent = a.name;
+  document.getElementById('sub-title-lbl').textContent = a.subtopics.length+' subtemas';
+
+  let html = '';
+  a.subtopics.forEach((st,si)=>{
+    const d = st.lessons.filter(l=>prog[l.id]?.done).length;
+    const pct = Math.round(d/st.lessons.length*100);
+    html += `<div style="margin-bottom:8px">
+      <button class="lesson-btn" style="border-radius:var(--radius) var(--radius) 0 0;border-bottom:none" onclick="openSubtopic(${areaIdx},${si})">
+        <div class="lesson-check" style="border-radius:50%;flex-shrink:0" ${d===st.lessons.length&&d>0?'class="done"':''}>
+          ${d===st.lessons.length&&d>0?'':''}
+        </div>
         <div class="lesson-info">
-          <div class="lesson-name">${l.title}</div>
-          <div class="lesson-tags">${l.tags.slice(0,4).join(' · ')}</div>
+          <div class="lesson-name">${st.title}</div>
+          <div class="lesson-tags">${st.lessons.length} lecciones · ${d}/${st.lessons.length} completadas</div>
         </div>
         <div class="lesson-arrow">›</div>
-      </button>`;
-    });
-    listHtml += '</div>';
+      </button>
+      <div style="background:var(--bg2);border:0.5px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:4px 8px">
+        ${st.lessons.map(l=>{
+          const isDone=prog[l.id]?.done;
+          return `<span style="display:inline-block;font-size:10px;margin:2px 3px;padding:2px 7px;border-radius:20px;background:${isDone?'var(--teal-light)':'var(--bg)'};color:${isDone?'var(--teal-text)':'var(--text3)'};border:0.5px solid ${isDone?'var(--teal)':'var(--border)'}">${l.title}</span>`;
+        }).join('')}
+      </div>
+    </div>`;
   });
-  document.getElementById('home-lesson-list').innerHTML = listHtml;
+  document.getElementById('subtopic-lesson-list').innerHTML = html;
+}
+
+// ── SUBTOPIC → shows lessons ──────────────────────────────────────────────
+function openSubtopic(areaIdx, subtopicIdx) {
+  const a = AREAS[areaIdx];
+  const st = a.subtopics[subtopicIdx];
+  const prog = getAllProgress();
+
+  document.getElementById('screen-subtopic').classList.remove('active');
+  document.getElementById('screen-subtopic').classList.add('active');
+  document.getElementById('sub-area-lbl').textContent = a.name+' › '+st.title.split(' ').slice(0,3).join(' ')+'…';
+  document.getElementById('sub-title-lbl').textContent = st.lessons.length+' lecciones';
+
+  let html = `<div style="margin-bottom:8px">
+    <button class="lesson-btn" style="background:var(--bg2);border-style:dashed;margin-bottom:12px" onclick="openArea(${areaIdx})">
+      <div style="font-size:18px;color:var(--text3)">←</div>
+      <div class="lesson-info"><div class="lesson-name" style="color:var(--text2)">Volver a ${a.name}</div></div>
+    </button>`;
+
+  st.lessons.forEach(l=>{
+    const gIdx = ALL_LESSONS.findIndex(x=>x.id===l.id);
+    const isDone = prog[l.id]?.done;
+    const isCached = !!loadContent(l.id,'explain');
+    html += `<button class="lesson-btn" style="margin-bottom:6px" onclick="openLesson(${gIdx})">
+      <div class="lesson-check ${isDone?'done':''}"></div>
+      <div class="lesson-info">
+        <div class="lesson-name">${l.title}</div>
+        <div class="lesson-tags">${l.tags.slice(0,4).join(' · ')}${isCached?' · <span style="color:var(--teal)">guardada</span>':''}</div>
+      </div>
+      <div class="lesson-arrow">›</div>
+    </button>`;
+  });
+  html += '</div>';
+  document.getElementById('subtopic-lesson-list').innerHTML = html;
 }
 
 function goHome() {
-  Object.keys(alpState).forEach(k=>delete alpState[k]);
   stopTTS();
-  document.getElementById('screen-lesson').classList.remove('active');
+  Object.keys(alpState).forEach(k=>delete alpState[k]);
+  ['screen-lesson','screen-subtopic'].forEach(id=>{
+    document.getElementById(id).classList.remove('active');
+  });
   document.getElementById('screen-home').classList.add('active');
   renderHome();
 }
 
+function goSubtopic() {
+  stopTTS();
+  Object.keys(alpState).forEach(k=>delete alpState[k]);
+  document.getElementById('screen-lesson').classList.remove('active');
+  document.getElementById('screen-subtopic').classList.add('active');
+  // re-open the subtopic of the current lesson
+  const l = ALL_LESSONS[curLessonIdx];
+  const aIdx = AREAS.findIndex(a=>a.subtopics.some(st=>st.lessons.some(le=>le.id===l.id)));
+  const stIdx = AREAS[aIdx].subtopics.findIndex(st=>st.lessons.some(le=>le.id===l.id));
+  openSubtopic(aIdx, stIdx);
+}
+
 // ── LESSON ────────────────────────────────────────────────────────────────
 function openLesson(idx) {
-  Object.keys(alpState).forEach(k=>delete alpState[k]);
   stopTTS();
-  curIdx = idx;
-  const l = ALL[idx];
+  Object.keys(alpState).forEach(k=>delete alpState[k]);
+  curLessonIdx = idx;
+  const l = ALL_LESSONS[idx];
   document.getElementById('screen-home').classList.remove('active');
+  document.getElementById('screen-subtopic').classList.remove('active');
   document.getElementById('screen-lesson').classList.add('active');
   document.getElementById('nav-title').textContent = l.title;
-  document.getElementById('nav-sub').textContent = l.areaName;
-  document.getElementById('btn-prev').disabled = idx === 0;
-  document.getElementById('btn-next').textContent = idx === ALL.length-1 ? 'Finalizar' : 'Siguiente →';
+  document.getElementById('nav-sub').textContent = l.areaName+' › '+l.subtopicTitle.replace(/^\d+\.\d+ /,'');
+  document.getElementById('btn-prev').disabled = idx===0;
+  document.getElementById('btn-next').textContent = idx===ALL_LESSONS.length-1?'Finalizar':'Siguiente →';
 
-  // reset tabs
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===0));
   document.querySelectorAll('.tab-content').forEach((tc,i)=>tc.classList.toggle('active',i===0));
-  document.getElementById('tab-explain').innerHTML = '';
-  document.getElementById('tab-audio').innerHTML = '';
-  document.getElementById('tab-quiz').innerHTML = '';
-
+  document.getElementById('tab-explain').innerHTML='';
+  document.getElementById('tab-audio').innerHTML='';
+  document.getElementById('tab-quiz').innerHTML='';
   loadExplain(l);
 }
 
 function changeLesson(dir) {
-  const next = curIdx + dir;
-  if(next >= 0 && next < ALL.length) openLesson(next);
-  else if(next >= ALL.length) goHome();
+  const next = curLessonIdx+dir;
+  if(next>=0 && next<ALL_LESSONS.length) openLesson(next);
+  else if(next>=ALL_LESSONS.length) goSubtopic();
 }
 
 function switchTab(tab, btn) {
@@ -440,9 +682,16 @@ function switchTab(tab, btn) {
   document.querySelectorAll('.tab-content').forEach(tc=>tc.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-'+tab).classList.add('active');
-  const l = ALL[curIdx];
+  const l = ALL_LESSONS[curLessonIdx];
   if(tab==='audio') loadAudio(l);
   if(tab==='quiz') loadQuiz(l);
+}
+
+function clearAllCache() {
+  if(!confirm('¿Borrar el contenido guardado? El progreso de quizzes se mantiene.')) return;
+  Object.keys(localStorage).filter(k=>k.startsWith('ep_content_')).forEach(k=>localStorage.removeItem(k));
+  Object.keys(cache).forEach(k=>delete cache[k]);
+  renderHome();
 }
 
 // ── CLAUDE API ────────────────────────────────────────────────────────────
@@ -450,11 +699,7 @@ async function callClaude(prompt) {
   const res = await fetch('/api/claude', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      model:'claude-sonnet-4-20250514',
-      max_tokens:1200,
-      messages:[{role:'user',content:prompt}]
-    })
+    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1200, messages:[{role:'user',content:prompt}] })
   });
   const data = await res.json();
   const text = data.content.map(b=>b.text||'').join('');
@@ -462,23 +707,26 @@ async function callClaude(prompt) {
 }
 
 function prompt_explain(l) {
-  return `Eres un tutor experto preparando a Luis para su examen privado oral de Ingeniería en Sistemas en Guatemala. Tema: "${l.title}" (área: ${l.areaName}). Palabras clave: ${l.tags.join(', ')}. 
-Responde SOLO con JSON válido sin markdown ni backticks:
+  return `Eres un tutor experto preparando a Luis para su examen privado oral de Ingeniería en Sistemas en Guatemala (Universidad Mesoamericana). 
+Tema específico: "${l.title}" — parte de: ${l.subtopicTitle} — área: ${l.areaName}.
+Conceptos clave a cubrir: ${l.tags.join(', ')}.
+Responde SOLO con JSON válido sin markdown:
 {"points":[{"title":"string","body":"string"}],"summary":"string"}
-Máximo 6 puntos. Título corto, body de 1-2 oraciones claras y concretas. Summary: 1 oración que resume el tema para examen oral.`;
+Exactamente 5-6 puntos. Cada punto enfocado en UN concepto clave. Body de 2 oraciones concretas y precisas. Summary: 1 oración de repaso rápido para examen oral. Sin introducción, directo al contenido.`;
 }
 function prompt_qa(l) {
-  return `Tutor experto. Tema: "${l.title}" (${l.areaName}). Tags: ${l.tags.join(', ')}.
-Genera 10 preguntas y respuestas cortas estilo examen oral. SOLO JSON sin markdown:
+  return `Tutor experto. Tema: "${l.title}" (${l.subtopicTitle} · ${l.areaName}). Conceptos: ${l.tags.join(', ')}.
+Genera 10 preguntas y respuestas cortas estilo examen oral guatemalteco. SOLO JSON sin markdown:
 {"qa":[{"q":"string","a":"string"}]}
-Preguntas directas. Respuestas de máximo 2 oraciones.`;
+Preguntas directas y concretas. Respuestas de máximo 2 oraciones. Incluye definiciones, diferencias, ejemplos y aplicaciones prácticas.`;
 }
 function prompt_quiz(l) {
-  return `Tutor experto. Tema: "${l.title}" (${l.areaName}). Tags: ${l.tags.join(', ')}.
-Genera 6 preguntas de opción múltiple. SOLO JSON sin markdown:
-{"questions":[{"q":"string","opts":["A","B","C","D"],"correct":0,"exp":"string"}]}
-correct = índice 0-3 de la correcta. exp = explicación breve de 1 oración.`;
+  return `Tutor experto. Tema: "${l.title}" (${l.subtopicTitle} · ${l.areaName}). Conceptos: ${l.tags.join(', ')}.
+Genera 6 preguntas de opción múltiple nivel examen oral universitario. SOLO JSON sin markdown:
+{"questions":[{"q":"string","opts":["A. texto","B. texto","C. texto","D. texto"],"correct":0,"exp":"string"}]}
+correct = índice 0-3. exp = explicación de 1 oración por qué esa es la correcta. Opciones plausibles y técnicas.`;
 }
+
 
 // ── EXPLAIN ───────────────────────────────────────────────────────────────
 async function loadExplain(l) {
@@ -500,7 +748,7 @@ async function loadExplain(l) {
     cache[l.id+'_explain'] = html;
     box.innerHTML = html;
   } catch(e) {
-    box.innerHTML = `<div class="err-box">Error al cargar. Verifica tu conexión.<br><br><button class="bottom-btn" onclick="loadExplain(ALL[curIdx])">Reintentar</button></div>`;
+    box.innerHTML = `<div class="err-box">Error al cargar. Verifica tu conexión.<br><br><button class="bottom-btn" onclick="loadExplain(ALL_LESSONS[curLessonIdx])">Reintentar</button></div>`;
   }
 }
 
@@ -680,7 +928,7 @@ async function loadAudio(l) {
     cache[l.id+'_audio'] = html;
     box.innerHTML = html;
   } catch(e) {
-    box.innerHTML = `<div class="err-box">Error al cargar.<br><br><button class="bottom-btn" onclick="loadAudio(ALL[curIdx])">Reintentar</button></div>`;
+    box.innerHTML = `<div class="err-box">Error al cargar.<br><br><button class="bottom-btn" onclick="loadAudio(ALL_LESSONS[curLessonIdx])">Reintentar</button></div>`;
   }
 }
 
@@ -882,7 +1130,7 @@ async function loadQuiz(l) {
     saveProgress(l.id, 'quizData', d.questions);
     renderQuiz(l.id, d.questions, {});
   } catch(e) {
-    box.innerHTML = `<div class="err-box">Error al cargar.<br><br><button class="bottom-btn" onclick="loadQuiz(ALL[curIdx])">Reintentar</button></div>`;
+    box.innerHTML = `<div class="err-box">Error al cargar.<br><br><button class="bottom-btn" onclick="loadQuiz(ALL_LESSONS[curLessonIdx])">Reintentar</button></div>`;
   }
 }
 
@@ -952,6 +1200,12 @@ function markDone(lid) {
   const btns = document.querySelectorAll(`[onclick="markDone('${lid}')"]`);
   btns.forEach(b=>{ b.textContent='✓ Completada'; b.disabled=true; });
 }
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+window.speechSynthesis && window.speechSynthesis.getVoices();
+renderHome();
+updateCountdown();
+setInterval(updateCountdown, 60000);
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 window.speechSynthesis && window.speechSynthesis.getVoices();
