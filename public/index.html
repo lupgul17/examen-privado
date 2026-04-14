@@ -186,6 +186,26 @@
 </head>
 <body>
 
+<!-- WELCOME: first time setup -->
+<div id="screen-welcome" class="screen active">
+  <div style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;text-align:center">
+    <div style="font-size:48px;margin-bottom:16px">📚</div>
+    <h1 style="font-size:26px;font-weight:700;color:var(--text);margin-bottom:8px">Bienvenido</h1>
+    <p style="font-size:14px;color:var(--text3);margin-bottom:32px;line-height:1.6">Tu app de estudio para el examen privado<br>de Ingeniería en Sistemas</p>
+    <div style="width:100%;max-width:320px">
+      <label style="font-size:12px;font-weight:500;color:var(--text2);text-align:left;display:block;margin-bottom:8px">¿Cómo te llamas?</label>
+      <input id="welcome-name" type="text" placeholder="Tu nombre" autocomplete="given-name"
+        style="width:100%;padding:14px 16px;font-size:16px;border:1.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);outline:none;margin-bottom:12px"
+        onkeydown="if(event.key==='Enter')startApp()">
+      <button onclick="startApp()"
+        style="width:100%;padding:14px;font-size:15px;font-weight:600;background:var(--purple);color:white;border:none;border-radius:var(--radius);cursor:pointer">
+        Comenzar →
+      </button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-top:20px">Tu nombre se guarda solo en este dispositivo</p>
+  </div>
+</div>
+
 <!-- HOME: areas -->
 <div id="screen-home" class="screen active">
   <div style="padding:16px 16px 0">
@@ -194,7 +214,7 @@
       <button class="install-btn" onclick="installApp()">Instalar</button>
     </div>
     <div class="home-header">
-      <h1>Hola, Luis</h1>
+      <h1 id="home-greeting">Hola!</h1>
       <p>Examen privado · 6 de julio de 2026</p>
     </div>
     <div id="exam-countdown" style="background:var(--purple-light);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
@@ -512,10 +532,36 @@ function installApp(){
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 // ── HOME (areas) ──────────────────────────────────────────────────────────
+// ── WELCOME & NAME ───────────────────────────────────────────────────────
+function getUserName() {
+  return localStorage.getItem('ep_username') || '';
+}
+function setUserName(name) {
+  localStorage.setItem('ep_username', name.trim());
+}
+function startApp() {
+  const input = document.getElementById('welcome-name');
+  const name = input ? input.value.trim() : '';
+  if(!name) {
+    input.style.borderColor = 'var(--red)';
+    input.placeholder = 'Escribe tu nombre para continuar';
+    input.focus();
+    return;
+  }
+  setUserName(name);
+  document.getElementById('screen-welcome').classList.remove('active');
+  document.getElementById('screen-home').classList.remove('active');
+  document.getElementById('screen-home').classList.add('active');
+  renderHome();
+}
+
 function renderHome() {
   const prog = getAllProgress();
   const done = ALL_LESSONS.filter(l=>prog[l.id]?.done).length;
   const total = ALL_LESSONS.length;
+  const userName = getUserName();
+  const greetEl = document.getElementById('home-greeting');
+  if(greetEl) greetEl.textContent = 'Hola, ' + (userName || 'estudiante') + '!';
   document.getElementById('home-pct').textContent = Math.round(done/total*100)+'%';
   document.getElementById('home-done').textContent = done+'/'+total;
   const stats = getCacheStats();
@@ -651,7 +697,6 @@ function goSubtopic() {
 
 // ── LESSON ────────────────────────────────────────────────────────────────
 function openLesson(idx) {
-  console.log('Opening lesson', idx);
   stopTTS();
   Object.keys(alpState).forEach(k=>delete alpState[k]);
   curLessonIdx = idx;
@@ -1202,9 +1247,17 @@ function markDone(lid) {
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 window.speechSynthesis && window.speechSynthesis.getVoices();
-updateCountdown();
-setInterval(updateCountdown, 60000);
-renderHome();
+// Show welcome screen if no name saved, else go straight to home
+if(getUserName()) {
+  document.getElementById('screen-welcome').classList.remove('active');
+  document.getElementById('screen-home').classList.add('active');
+  updateCountdown();
+  setInterval(updateCountdown, 60000);
+  renderHome();
+} else {
+  // Stay on welcome screen, set up countdown for after
+  setTimeout(()=>{ updateCountdown(); setInterval(updateCountdown, 60000); }, 100);
+}
 </script>
 </body>
 </html>
