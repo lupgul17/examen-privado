@@ -651,6 +651,7 @@ function goSubtopic() {
 
 // ── LESSON ────────────────────────────────────────────────────────────────
 function openLesson(idx) {
+  console.log('Opening lesson', idx);
   stopTTS();
   Object.keys(alpState).forEach(k=>delete alpState[k]);
   curLessonIdx = idx;
